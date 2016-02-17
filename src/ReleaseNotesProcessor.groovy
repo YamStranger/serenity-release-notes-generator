@@ -116,10 +116,22 @@ public class ReleaseNotesProcessor {
 
         result.withPrintWriter { writer ->
             results.each { line ->
-                writer.write("$line\n")
+                writer.write("${updateDevName(line)}\n")
             }
         }
         println "done"
+    }
+
+    def static String updateDevName(def String line){
+        def Pattern pattern = Pattern.compile(".+(?<developer>\\@(?<login>[^()]+)).+")
+        def Matcher matcher = pattern.matcher(line)
+        if (matcher.find()) {
+            def developer = matcher.group("developer")
+            def login = matcher.group("login")
+            return line.replaceAll(developer, "[$developer](https://github.com/$login)")
+        } else {
+            return line
+        }
     }
 
     def static boolean isCommitHeader(def line) {
