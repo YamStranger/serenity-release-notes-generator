@@ -1,8 +1,9 @@
 ## Here is some scripts to generate serenity release notes
 
 It uses different tools to create release notes: 
-[git-changelog-lib](https://github.com/tomasbjerre/git-changelog-lib)
-[github-changes](https://github.com/lalitkapoor/github-changes)
+
+* [git-changelog-lib](https://github.com/tomasbjerre/git-changelog-lib)
+* [github-changes](https://github.com/lalitkapoor/github-changes)
 
 and custom groovy script. 
 
@@ -59,10 +60,10 @@ echo 'export PATH="'$(pwd)':$PATH"' >> ~/.bashrc
 
 Now you can generate tree different reports:
  1. Based on pull requests
-   ``` github-changes --owner serenity-bdd -r serenity-core -d pulls --token ${GITHUB_TOKEN} --file github-changes.md --title '# Serenity BDD Core Change Log' --no-merges --verbose ```
+   ``` github-changes --owner serenity-bdd -r serenity-core -d pulls --token ${GITHUB_TOKEN} --file github-changes.md --title 'Serenity Core Changes Log' --no-merges --verbose ```
 
  2. Based on Commits
-   ``` github-changes --owner serenity-bdd -r serenity-core -d commits --token ${GITHUB_TOKEN} --file github-changes_commits.md --title '# Serenity BDD Core Change Log' --no-merges --verbose ```
+   ``` github-changes --owner serenity-bdd -r serenity-core -d commits --token ${GITHUB_TOKEN} --file github-changes_commits.md --title 'Serenity Core Changes Log' --no-merges --verbose ```
 
  3. Based on Commits extended
  ```
