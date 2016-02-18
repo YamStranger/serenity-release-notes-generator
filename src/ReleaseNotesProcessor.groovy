@@ -1,3 +1,5 @@
+import javafx.collections.transformation.SortedList
+
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -16,7 +18,7 @@ import java.util.regex.Pattern
  */
 public class ReleaseNotesProcessor {
     static void main(String... args) {
-        if (args.length < 4) {
+        if (args.length < 5) {
             throw new IllegalArgumentException("Should be three input file paths and one output");
         }
 
@@ -24,8 +26,9 @@ public class ReleaseNotesProcessor {
         def Path commits = Paths.get(args[1]) //report generated based on commits
         def Path commitsEx = Paths.get(args[2]) //report generated based on commits with description
         def Path result = Paths.get(args[3]) //report generated based on commits with description
+        def Path commitsTime = Paths.get(args[4]) //report generated based on commits with description
 
-        def String date = args.size() >= 5 ? args[4] : null //date before what skip all report entity
+        def String date = args.size() >= 6 ? args[5] : null //date before what skip all report entity
         def Date filter = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z").parse("2016/02/15:11:18:+0000");
 
         if (date) {
@@ -65,6 +68,7 @@ public class ReleaseNotesProcessor {
 
         def Map<String, Commit> extensions = new HashMap<String, Commit>()
         def Map<String, Release> releases = new HashMap<String, Release>()
+        def Map<String, Date> commitTimes = new HashMap<String, Date>()
 
         def List lines = commitsEx.readLines("UTF-8")
         def Iterator<String> iterator = lines.iterator();
@@ -78,6 +82,33 @@ public class ReleaseNotesProcessor {
         }
 
         println("readed extended commits: ${extensions.size()}")
+
+        lines = pulls.readLines("UTF-8")
+        iterator = lines.iterator();
+        while (iterator.hasNext()) {
+            def line = iterator.next()
+            def Pattern pattern = Pattern.compile(".*(?<date>\\d+-\\d+-\\d+\\s+\\d+:\\d+:\\d+){1}-(?<hash>[a-f0-9]+){1}.*")
+            def DateFormat format = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+
+            if (!line.isEmpty()) {
+                def Matcher matcher = pattern.matcher(line)
+                if (matcher.find()) {
+                    def hash = matcher.group("hash").substring(0, 7)
+                    def commitDate = matcher.group("date")
+                    def Date readedDate
+                    try {
+                        readedDate = format.parse(commitDate);
+                        println("parsed date from $line it equal to ${format.format(readedDate)}")
+                        commitTimes.put(hash, readedDate)
+                    } catch (e) {
+                        println("can not parce date from string $commitDate")
+                    }
+                }
+            }
+        }
+
+        println("readed commit times: ${commitTimes.size()}")
+
 
         def results = new LinkedList<String>()
         lines = pulls.readLines("UTF-8")
@@ -114,6 +145,22 @@ public class ReleaseNotesProcessor {
                         results.add(" ")
                         results.add("**Commits:**")
                         results.add(" ")
+
+                        release.lines.sort(new Comparator<String>() {
+                            @Override
+                            int compare(String o1, String o2) {
+                                def String left = commitId(o1)
+                                def String right = commitId(o2)
+                                def Date leftDate = commitTimes.get(left)
+                                def Date rightDate = commitTimes.get(right)
+                                if (leftDate != null && rightDate != null) {
+                                    return leftDate.compareTo(rightDate)
+                                }else{
+                                    return left.compareTo(right)
+                                }
+                            }
+                        })
+
                         release.lines.each { commit ->
                             results.add(commit)
                             def id = commitId(commit)
@@ -149,7 +196,12 @@ public class ReleaseNotesProcessor {
     }
 
     def static Boolean include(def String line) {
-        def Collection<String> exclude = [".*([a-f0-9]+\\))\\s+(Revert\\s+.*)", ".*([a-f0-9]+\\))\\s+Merge\\s+branch\\s+.*"].asList()
+        def Collection<String> exclude = [
+            ".*([a-f0-9]+\\))\\s+(Revert\\s+.*)",
+            ".*([a-f0-9]+\\))\\s+Merge\\s+branch\\s+.*",
+            ".*(pdating\\s+changelog).*"
+
+        ].asList()
         def boolean match = false;
         exclude.each { parameter ->
             if (!match && line.matches(parameter)) {
@@ -253,7 +305,7 @@ class Release {
 
     Release(String name) {
         this.name = name
-        lines = new LinkedList();
+        lines = new LinkedList<String>()
     }
 }
 
