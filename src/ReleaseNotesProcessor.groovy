@@ -1,6 +1,9 @@
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.text.DateFormat
+import java.text.ParseException
+import java.text.SimpleDateFormat
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
@@ -21,6 +24,20 @@ public class ReleaseNotesProcessor {
         def Path commits = Paths.get(args[1]) //report generated based on commits
         def Path commitsEx = Paths.get(args[2]) //report generated based on commits with description
         def Path result = Paths.get(args[3]) //report generated based on commits with description
+
+        def String date = args.size() >= 5 ? args[4] : null //date before what skip all report entity
+        def Date filter = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z").parse("2016/02/15:11:18:+0000");
+
+        if (date) {
+            def DateFormat format = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z")
+            try {
+                filter = format.parse(date);
+                println("parsed filter - will be included only data after ${format.format(filter)}")
+            } catch (e) {
+                println("can not parse date string \"$date\" according format \"yyyy/MM/dd:HH:mm:Z\" try \"2000/01/01:10:10:+0000\"")
+            }
+        }
+
 
         if (!Files.exists(pulls)) {
             throw new IllegalArgumentException("${pulls.toAbsolutePath().toString()} does not exist");
@@ -78,37 +95,44 @@ public class ReleaseNotesProcessor {
             def line = iterator.next()
             if (isReleaseHeader(line)) {
                 def Release release = readRelease(line, iterator)
-                results.add("${release.name}")
-                results.add(" ")
-                def Release pullRelease = releases.get(release.name)
-                if (pullRelease) {
-                    results.add("**Pull requests:**")
+                def SimpleDateFormat fo = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+                if (release.date.after(filter)) {
+                    println("accepted release ${release.name} becase ${fo.format(filter)}.before(${fo.format(release.date)})")
+                    results.add("${release.name}")
                     results.add(" ")
+                    def Release pullRelease = releases.get(release.name)
+                    if (pullRelease) {
+                        results.add("**Pull requests:**")
+                        results.add(" ")
 
-                    pullRelease.lines.each { pull -> results.add("$pull") }
-                } else {
-                    println("can not find pulls release with name ${release.name}")
-                }
+                        pullRelease.lines.each { pull -> results.add("$pull") }
+                    } else {
+                        println("can not find pulls release with name ${release.name}")
+                    }
 
-                if (release.lines.size()) {
-                    results.add(" ")
-                    results.add("**Commits:**")
-                    results.add(" ")
-                    release.lines.each { commit ->
-                        results.add(commit)
-                        def id = commitId(commit)
-                        if (extensions.containsKey(id)) {
-                            results.add(" ")
-                            extensions.get(id).description.each { descrLine ->
-                                results.add(descrLine)
+                    if (release.lines.size()) {
+                        results.add(" ")
+                        results.add("**Commits:**")
+                        results.add(" ")
+                        release.lines.each { commit ->
+                            results.add(commit)
+                            def id = commitId(commit)
+                            if (extensions.containsKey(id)) {
+                                results.add(" ")
+                                extensions.get(id).description.each { descrLine ->
+                                    results.add(descrLine)
+                                }
+                            } else {
+                                println("can not fine extension for ${id}")
                             }
-                        } else {
-                            println("can not fine extension for ${id}")
                         }
                     }
+                    results.add(" ")
+                } else {
+                    println("skip release ${release.name} becase ${fo.format(filter)}.before(${fo.format(release.date)})")
                 }
-                results.add(" ")
             } else {
+                println("Indicated that it is not release line: ${line}")
                 results.add(line)
             }
         }
@@ -116,13 +140,28 @@ public class ReleaseNotesProcessor {
 
         result.withPrintWriter { writer ->
             results.each { line ->
-                writer.write("${updateDevName(line)}\n")
+                if (include(line)) {
+                    writer.write("${updateDevName(line)}\n")
+                }
             }
         }
         println "done"
     }
 
-    def static String updateDevName(def String line){
+    def static Boolean include(def String line) {
+        def Collection<String> exclude = [".*([a-f0-9]+\\))\\s+(Revert\\s+.*)", ".*([a-f0-9]+\\))\\s+Merge\\s+branch\\s+.*"].asList()
+        def boolean match = false;
+        exclude.each { parameter ->
+            if (!match && line.matches(parameter)) {
+                match = true
+            } else {
+                println("$line not match $parameter")
+            }
+        }
+        return !match
+    }
+
+    def static String updateDevName(def String line) {
         def Pattern pattern = Pattern.compile(".+(?<developer>\\@(?<login>[^()]+)).+")
         def Matcher matcher = pattern.matcher(line)
         if (matcher.find()) {
@@ -152,7 +191,7 @@ public class ReleaseNotesProcessor {
     }
 
     def static boolean isReleaseHeader(def String line) {
-        line.matches("^(###).+\\(.+\\)\$")
+        line.matches("^(###)+.+\\(+.+\\)+\$")
     }
 
     def static Commit readCommitDescription(def id, def Iterator<String> iterator) {
@@ -177,12 +216,27 @@ public class ReleaseNotesProcessor {
 
     def static Release readRelease(def String name, def Iterator<String> iterator) {
         def release = new Release(name);
+        def Pattern pattern = Pattern.compile("\\((?<date>\\d+/\\d+/\\d+\\s+\\d+:\\d+)\\s+(?<timezone>.{1}\\d+:\\d+\\))")
+        def Matcher matcher = pattern.matcher(name)
+        if (matcher.find()) {
+            def dateString = matcher.group("date")
+            def DateFormat format = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+            Date result = new Date();
+            try {
+                result = format.parse(dateString);
+                println("parsed date from $dateString it equal to ${format.format(result)}")
+            } catch (e) {
+                println("can not parce date from string $dateString")
+            }
+            release.date = result
+        }
         while (iterator.hasNext()) {
             def line = iterator.next()
             if (!line.isEmpty()) {
                 release.lines.add(line)
                 println("line readed as release description $line for release $name")
             } else {
+                println("relase reading skipped line $line")
                 return release
             }
         }
@@ -195,6 +249,7 @@ public class ReleaseNotesProcessor {
 class Release {
     def String name
     def List<String> lines
+    def Date date
 
     Release(String name) {
         this.name = name
