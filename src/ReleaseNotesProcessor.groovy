@@ -25,8 +25,8 @@ public class ReleaseNotesProcessor {
         def Path pulls = Paths.get(args[0]) //report generated based on Pull Requests
         def Path commits = Paths.get(args[1]) //report generated based on commits
         def Path commitsEx = Paths.get(args[2]) //report generated based on commits with description
-        def Path result = Paths.get(args[3]) //report generated based on commits with description
-        def Path commitsTime = Paths.get(args[4]) //report generated based on commits with description
+        def Path commitsTime = Paths.get(args[3]) //report generated based on commits with description
+        def Path result = Paths.get(args[4]) //report generated based on commits with description
 
         def String date = args.size() >= 6 ? args[5] : null //date before what skip all report entity
         def Date filter = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z").parse("2016/02/15:11:18:+0000");
@@ -41,7 +41,11 @@ public class ReleaseNotesProcessor {
             }
         }
 
-
+        if (!Files.exists(commitsTime)) {
+            throw new IllegalArgumentException("${commitsTime.toAbsolutePath().toString()} does not exist");
+        } else {
+            commitsTime = commitsTime.toAbsolutePath()
+        }
         if (!Files.exists(pulls)) {
             throw new IllegalArgumentException("${pulls.toAbsolutePath().toString()} does not exist");
         } else {
@@ -83,7 +87,7 @@ public class ReleaseNotesProcessor {
 
         println("readed extended commits: ${extensions.size()}")
 
-        lines = pulls.readLines("UTF-8")
+        lines = commitsTime.readLines("UTF-8")
         iterator = lines.iterator();
         while (iterator.hasNext()) {
             def line = iterator.next()

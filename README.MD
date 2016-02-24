@@ -15,6 +15,19 @@ Install git:
 sudo apt-get install git
 ```
 
+Intall groovy:
+
+```
+mkdir -p ~/dev/apps/
+cd ~/dev/apps/
+wget https://bintray.com/artifact/download/groovy/maven/apache-groovy-sdk-2.4.5.zip
+unzip apache-groovy-sdk-2.4.5.zip 
+cd groovy-2.4.5/
+echo 'export GROOVY_HOME="'$(pwd)'"' >> ~/.bashrc
+echo 'export PATH="$GROOVY_HOME/bin:$PATH"' >> ~/.bashrc
+
+```
+
 Install Java: 
 
 ```
