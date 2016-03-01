@@ -1,9 +1,13 @@
+#!/usr/bin/env bash
 export RELEASE_DATE=`date -u +%Y/%m/%d_%H_%M`
 export LAST_RELEASE=2010/02/15:11:18:+0000
 export SCRIPT=$(pwd)/../src/ReleaseNotesProcessor
+export HARD_FILTERING_RELEASE=2016/02/24:08:54:+0000
+export TYPES=feat,fix,docs,style,refactor,perf,test,chore
+
 
 #last release 2010/02/15:11:18:+0000
-#current 
+#current
 rm -rf tmp
 mkdir -p tmp
 cd tmp/
@@ -28,10 +32,10 @@ echo '
 
 {{#commits}}
 {{#messageBody}}
-* [commit:](https://github.com/serenity-bdd/serenity-jbehave/commit/{{hash}}) {{messageTitle}} 
+* [commit:](https://github.com/serenity-bdd/serenity-jbehave/commit/{{hash}}) {{messageTitle}}
 
 {{#messageBodyItems}}
- > {{.}} 
+ > {{.}}
 {{/messageBodyItems}}
 {{/messageBody}}
 
@@ -47,7 +51,7 @@ echo '{{#tags}}
 git-changelog-command-line -of commit_times.md  --template commit_time.mustache
 
 
-groovy $SCRIPT.groovy $(pwd)/pulls.md $(pwd)/commits.md $(pwd)/commmits_ex.md $(pwd)/commit_times.md CHANGELOG.md $LAST_RELEASE
+groovy $SCRIPT.groovy $(pwd)/pulls.md $(pwd)/commits.md $(pwd)/commmits_ex.md $(pwd)/commit_times.md CHANGELOG.md $LAST_RELEASE $HARD_FILTERING_RELEASE $TYPES
 
 git add CHANGELOG.md
 git commit -m "updating changelog"
@@ -59,5 +63,5 @@ cd ../..
 
 
 
-	
+
 

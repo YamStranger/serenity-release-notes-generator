@@ -1,9 +1,10 @@
+#!/usr/bin/env bash
 export RELEASE_DATE=`date -u +%Y/%m/%d_%H_%M`
 export LAST_RELEASE=2010/02/15:11:18:+0000
 export SCRIPT=$(pwd)/../src/ReleaseNotesProcessor
 
 #last release 2010/02/15:11:18:+0000
-#current 
+#current
 rm -rf tmp
 mkdir -p tmp
 cd tmp/
@@ -28,10 +29,10 @@ echo '
 
 {{#commits}}
 {{#messageBody}}
-* [commit:](https://github.com/serenity-bdd/serenity-core/commit/{{hash}}) {{messageTitle}} 
+* [commit:](https://github.com/serenity-bdd/serenity-core/commit/{{hash}}) {{messageTitle}}
 
 {{#messageBodyItems}}
- > {{.}} 
+ > {{.}}
 {{/messageBodyItems}}
 {{/messageBody}}
 
@@ -59,5 +60,5 @@ rm -rf tmp
 
 
 
-	
+
 

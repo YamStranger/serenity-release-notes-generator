@@ -29,7 +29,14 @@ public class ReleaseNotesProcessor {
         def Path result = Paths.get(args[4]) //report generated based on commits with description
 
         def String date = args.size() >= 6 ? args[5] : null //date before what skip all report entity
+        def String hardFilteringDate = args.size() >= 7 ? args[6] : null
+        //after this date all commits will be filtered hard by name convention
+        def Set<String> types = args.size() >= 8 ? args[7].split(",") : new ArrayList<>()
+        //all commmits after hardFilteringDate will be filtered by this types
+        println("parsed types ${types.size()}, ${Arrays.toString(types.toArray())}")
+
         def Date filter = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z").parse("2016/02/15:11:18:+0000");
+        def Date hardNameConventionsFilter = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z").parse("2058/02/15:11:18:+0000");
 
         if (date) {
             def DateFormat format = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z")
@@ -40,6 +47,17 @@ public class ReleaseNotesProcessor {
                 println("can not parse date string \"$date\" according format \"yyyy/MM/dd:HH:mm:Z\" try \"2000/01/01:10:10:+0000\"")
             }
         }
+
+        if (hardFilteringDate) {
+            def DateFormat format = new SimpleDateFormat("yyyy/MM/dd:HH:mm:Z")
+            try {
+                hardNameConventionsFilter = format.parse(hardFilteringDate);
+                println("parsed hardNameConventionsFilter filter - will be included only data after ${format.format(hardFilteringDate)}")
+            } catch (e) {
+                println("can not parse date hardNameConventionsFilter string \"$hardFilteringDate\" according format \"yyyy/MM/dd:HH:mm:Z\" try \"2000/01/01:10:10:+0000\"")
+            }
+        }
+
 
         if (!Files.exists(commitsTime)) {
             throw new IllegalArgumentException("${commitsTime.toAbsolutePath().toString()} does not exist");
@@ -145,12 +163,40 @@ public class ReleaseNotesProcessor {
                         println("can not find pulls release with name ${release.name}")
                     }
 
-                    if (release.lines.size()) {
+
+                    def List<String> filteredCommits = new ArrayList<>()
+
+                    if (release.date.after(hardNameConventionsFilter)) {
+                        //commits should be filtered by name convention
+                        println("filter commits of release ${release.name} becase ${fo.format(hardNameConventionsFilter)}.before(${fo.format(release.date)})")
+                        def Pattern pattern = Pattern.compile(".*\\[+[a-f0-9]+\\]\\([^\\(\\)]+\\)+\\s+(?<type>[a-z]+)\\:.*")
+
+                        release.lines.each { commit ->
+                            def Matcher matcher = pattern.matcher(commit)
+                            if (types.isEmpty()) {
+                                filteredCommits.add(commit)
+                            } else {
+                                if (matcher.find()) {
+                                    def String type = matcher.group("type")
+                                    println("$type found for for commit:$commit")
+                                    if (types.contains(type)) {
+                                        filteredCommits.add(commit)
+                                    }
+                                }else{
+                                    println("type not found for commit: $commit")
+                                }
+                            }
+                        }
+                        //
+                    } else {
+                        filteredCommits.addAll(release.lines)
+                    }
+                    if (filteredCommits.size()) {
                         results.add(" ")
                         results.add("**Commits:**")
                         results.add(" ")
 
-                        release.lines.sort(new Comparator<String>() {
+                        filteredCommits.sort(new Comparator<String>() {
                             @Override
                             int compare(String o1, String o2) {
                                 def String left = commitId(o1)
@@ -159,13 +205,13 @@ public class ReleaseNotesProcessor {
                                 def Date rightDate = commitTimes.get(right)
                                 if (leftDate != null && rightDate != null) {
                                     return leftDate.compareTo(rightDate)
-                                }else{
+                                } else {
                                     return left.compareTo(right)
                                 }
                             }
                         })
 
-                        release.lines.each { commit ->
+                        filteredCommits.each { commit ->
                             results.add(commit)
                             def id = commitId(commit)
                             if (extensions.containsKey(id)) {
@@ -174,10 +220,15 @@ public class ReleaseNotesProcessor {
                                     results.add(descrLine)
                                 }
                             } else {
-                                println("can not fine extension for ${id}")
+                                println("can not find extension for ${id}")
                             }
                         }
                     }
+
+
+
+
+
                     results.add(" ")
                 } else {
                     println("skip release ${release.name} becase ${fo.format(filter)}.before(${fo.format(release.date)})")
